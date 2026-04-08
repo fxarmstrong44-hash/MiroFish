@@ -1,60 +1,41 @@
-# OS
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
 .DS_Store
-Thumbs.db
+*.pem
 
-# 环境变量（保护敏感信息）
-.env
-.env.local
-.env.*.local
-.env.development
-.env.test
-.env.production
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-.venv/
-venv/
-ENV/
-.eggs/
-*.egg-info/
-dist/
-build/
-
-# Node.js
-node_modules/
+# debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# env files
+.env
+.env.local
+.env.*.local
 
-# 测试
-.pytest_cache/
-.coverage
-htmlcov/
+# vercel
+.vercel
 
-# Cursor
-.cursor/
-.claude/
-
-# 文档与测试程序
-mydoc/
-mytest/
-
-# 日志文件
-backend/logs/
-*.log
-
-# 上传文件
-backend/uploads/
-
-# Docker 数据
-data/
+# typescript
+*.tsbuildinfo
+next-env.d.ts
