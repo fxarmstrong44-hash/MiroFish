@@ -11,7 +11,7 @@ export default function PrivateBankingPage() {
             <div className="p-3 rounded-xl bg-[#c9a84c]/20 glow-accent"><Crown className="w-8 h-8 text-[#c9a84c]" /></div>
             <div>
               <h1 className="text-2xl font-bold text-gold">Private Banking</h1>
-              <p className="text-sm text-white/40">Vaultr Elite — By Invitation Only</p>
+              <p className="text-sm text-white/40">Vaultr Elite \u2014 By Invitation Only</p>
             </div>
           </div>
           <p className="text-white/60 max-w-lg">Exclusive access to concierge AI, custom strategy building, direct API, and white-glove wealth management tools.</p>
@@ -36,7 +36,7 @@ export default function PrivateBankingPage() {
       <div className="glass p-8 text-center border-[#c9a84c]/20">
         <Crown className="w-12 h-12 text-[#c9a84c]/40 mx-auto mb-4" />
         <h3 className="text-lg font-bold text-white mb-2">$10,000/month</h3>
-        <p className="text-white/40 mb-4">R169,884/month — Includes all Vaultr features plus private banking</p>
+        <p className="text-white/40 mb-4">R169,884/month \u2014 Includes all Vaultr features plus private banking</p>
         <button className="btn-primary">Apply for Access</button>
       </div>
     </div>
