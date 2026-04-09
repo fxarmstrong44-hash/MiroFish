@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, Loader2 } from "lucide-react";
+import Suggestion from "./suggestion";
 
 interface Message {
   role: "user" | "assistant";
@@ -60,6 +61,9 @@ export default function LuckyChat() {
   return (
     <div className="flex flex-col h-[calc(100vh-10rem)]">
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+        {messages.length === 1 && !loading && (
+          <Suggestion onSelect={(s) => { setInput(s); }} />
+        )}
         {messages.map((msg, i) => (
           <div
             key={i}
