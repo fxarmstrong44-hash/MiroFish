@@ -44,13 +44,17 @@ function classifyTask(message: string): TaskType {
 export async function askLucky(
   userMessage: string,
   conversationHistory: AIMessage[] = [],
-  context?: { portfolio?: string; tier?: string }
+  context?: { portfolio?: string; tier?: string; memoryContext?: string }
 ): Promise<{ response: string; provider: string; model: string }> {
   const taskType = classifyTask(userMessage);
 
-  const contextAddendum = context
+  let contextAddendum = context
     ? `\n\nUSER CONTEXT:\n- Tier: ${context.tier || "free"}\n- Portfolio: ${context.portfolio || "N/A"}`
     : "";
+
+  if (context?.memoryContext) {
+    contextAddendum += `\n\n${context.memoryContext}`;
+  }
 
   const messages: AIMessage[] = [
     { role: "system", content: LUCKY_SYSTEM_PROMPT + contextAddendum },

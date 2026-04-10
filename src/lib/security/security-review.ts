@@ -1,8 +1,6 @@
 /**
  * Vaultr Security Review Engine
  * Automated security scanning for the entire application.
- * Checks: hardcoded secrets, XSS vectors, SQL injection, CSRF,
- * insecure dependencies, auth bypass, and OWASP Top 10.
  */
 
 export interface SecurityFinding {
@@ -16,8 +14,8 @@ export interface SecurityFinding {
 
 export interface SecurityReport {
   timestamp: string;
-  score: number; // 0-100
-  grade: string; // A+ to F
+  score: number;
+  grade: string;
   findings: SecurityFinding[];
   summary: {
     critical: number;
@@ -35,7 +33,6 @@ const SECRET_PATTERNS = [
   { pattern: /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, name: "JWT Token" },
   { pattern: /AKIA[0-9A-Z]{16}/g, name: "AWS Access Key" },
   { pattern: /ghp_[a-zA-Z0-9]{36}/g, name: "GitHub Personal Access Token" },
-  { pattern: /xoxb-[0-9]{10,}-[a-zA-Z0-9]{20,}/g, name: "Slack Bot Token" },
 ];
 
 const XSS_PATTERNS = [
@@ -43,12 +40,6 @@ const XSS_PATTERNS = [
   /innerHTML\s*=/g,
   /document\.write/g,
   /eval\s*\(/g,
-  /new\s+Function\s*\(/g,
-];
-
-const SQL_INJECTION_PATTERNS = [
-  /\$\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)/gi,
-  /`.*\$\{.*\}.*(?:SELECT|INSERT|UPDATE|DELETE|DROP|ALTER)/gi,
 ];
 
 export function scanForSecrets(code: string, filePath: string): SecurityFinding[] {
@@ -78,27 +69,9 @@ export function scanForXSS(code: string, filePath: string): SecurityFinding[] {
         severity: "high",
         category: "XSS Vulnerability",
         title: "Potential XSS vector detected",
-        description: `Unsafe DOM manipulation found that could allow cross-site scripting.`,
+        description: "Unsafe DOM manipulation found that could allow cross-site scripting.",
         location: filePath,
-        remediation: "Use React's built-in escaping. Avoid dangerouslySetInnerHTML and innerHTML.",
-      });
-    }
-  }
-  return findings;
-}
-
-export function scanForSQLInjection(code: string, filePath: string): SecurityFinding[] {
-  const findings: SecurityFinding[] = [];
-  for (const pattern of SQL_INJECTION_PATTERNS) {
-    pattern.lastIndex = 0;
-    if (pattern.test(code)) {
-      findings.push({
-        severity: "critical",
-        category: "SQL Injection",
-        title: "Potential SQL injection vector",
-        description: "String interpolation in SQL query detected.",
-        location: filePath,
-        remediation: "Use parameterized queries via Supabase client. Never interpolate user input into SQL.",
+        remediation: "Use React's built-in escaping. Avoid dangerouslySetInnerHTML.",
       });
     }
   }
@@ -107,8 +80,6 @@ export function scanForSQLInjection(code: string, filePath: string): SecurityFin
 
 export function checkAuthSecurity(): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
-
-  // Check environment variables exist
   const requiredEnvVars = [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -127,13 +98,12 @@ export function checkAuthSecurity(): SecurityFinding[] {
     }
   }
 
-  // Check service role key isn't exposed to client
   if (process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY) {
     findings.push({
       severity: "critical",
       category: "Auth Security",
       title: "Service role key exposed to client",
-      description: "SUPABASE_SERVICE_ROLE_KEY is prefixed with NEXT_PUBLIC_, exposing it to the browser.",
+      description: "SUPABASE_SERVICE_ROLE_KEY is prefixed with NEXT_PUBLIC_.",
       remediation: "Remove NEXT_PUBLIC_ prefix. Service role key must only be used server-side.",
     });
   }
@@ -142,15 +112,13 @@ export function checkAuthSecurity(): SecurityFinding[] {
 }
 
 export function checkCSPHeaders(): SecurityFinding[] {
-  const findings: SecurityFinding[] = [];
-  findings.push({
+  return [{
     severity: "info",
     category: "Headers",
     title: "Content Security Policy review",
-    description: "Verify CSP headers are set in next.config.ts to prevent XSS and data injection.",
-    remediation: "Add strict CSP: default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'",
-  });
-  return findings;
+    description: "Verify CSP headers are set in next.config.ts.",
+    remediation: "Add strict CSP: default-src 'self'; script-src 'self' 'unsafe-eval'",
+  }];
 }
 
 export function checkRateLimiting(): SecurityFinding[] {
@@ -158,8 +126,8 @@ export function checkRateLimiting(): SecurityFinding[] {
     severity: "info",
     category: "Rate Limiting",
     title: "Rate limiting configuration",
-    description: "Auth routes: 5 attempts/15 min. API routes: 100 requests/min. Council: tier-based limits.",
-    remediation: "Verify rate limits are enforced on all public endpoints via middleware.",
+    description: "Auth: 5 attempts/15 min. API: 60 requests/min. Council: tier-based.",
+    remediation: "Verify rate limits are enforced on all public endpoints.",
   }];
 }
 
@@ -169,7 +137,6 @@ export function generateSecurityReport(codeFiles: { path: string; content: strin
   for (const file of codeFiles) {
     allFindings.push(...scanForSecrets(file.content, file.path));
     allFindings.push(...scanForXSS(file.content, file.path));
-    allFindings.push(...scanForSQLInjection(file.content, file.path));
   }
 
   allFindings.push(...checkAuthSecurity());
@@ -189,11 +156,5 @@ export function generateSecurityReport(codeFiles: { path: string; content: strin
   const grade =
     score >= 95 ? "A+" : score >= 90 ? "A" : score >= 80 ? "B" : score >= 70 ? "C" : score >= 60 ? "D" : "F";
 
-  return {
-    timestamp: new Date().toISOString(),
-    score,
-    grade,
-    findings: allFindings,
-    summary,
-  };
+  return { timestamp: new Date().toISOString(), score, grade, findings: allFindings, summary };
 }

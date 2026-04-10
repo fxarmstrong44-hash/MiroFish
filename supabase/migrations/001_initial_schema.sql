@@ -326,7 +326,26 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
+-- User Memory (Claude AI persistent context)
+CREATE TABLE user_memory (
+  id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('preference', 'analysis', 'trade', 'insight', 'context')),
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  importance INTEGER DEFAULT 5 CHECK (importance >= 1 AND importance <= 10),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ
+);
+
+ALTER TABLE user_memory ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own memory" ON user_memory FOR ALL USING (auth.uid() = user_id);
+
 -- Indexes
+CREATE INDEX idx_memory_user_id ON user_memory(user_id);
+CREATE INDEX idx_memory_type ON user_memory(type);
+CREATE INDEX idx_memory_expires ON user_memory(expires_at) WHERE expires_at IS NOT NULL;
 CREATE INDEX idx_profiles_user_id ON profiles(user_id);
 CREATE INDEX idx_portfolios_user_id ON portfolios(user_id);
 CREATE INDEX idx_positions_portfolio_id ON positions(portfolio_id);

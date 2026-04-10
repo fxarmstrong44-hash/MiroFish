@@ -14,7 +14,7 @@ const STATS = [
 const CAPABILITIES = [
   {
     title: "Multi-Model AI Routing",
-    description: "Queries automatically route to the best model \u2014 OpenAI for financial analysis, Claude for deep reasoning, Perplexity for real-time market data.",
+    description: "Queries automatically route to the best model — OpenAI for financial analysis, Claude for deep reasoning, Perplexity for real-time market data.",
     icon: Zap,
   },
   {

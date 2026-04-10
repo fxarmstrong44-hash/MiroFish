@@ -1,22 +1,20 @@
 /**
  * Vaultr Claude Memory System
  * Persistent context management for Lucky AI conversations.
- * Stores user preferences, past analyses, portfolio context,
- * and trading patterns to provide personalized intelligence.
  */
 
 import { createClient } from "@/lib/supabase/server";
 
 export interface MemoryEntry {
   id: string;
-  userId: string;
+  user_id: string;
   type: "preference" | "analysis" | "trade" | "insight" | "context";
   key: string;
   value: string;
   metadata?: Record<string, unknown>;
-  importance: number; // 1-10, higher = more relevant
-  createdAt: string;
-  expiresAt?: string;
+  importance: number;
+  created_at: string;
+  expires_at?: string;
 }
 
 export interface UserMemory {
@@ -30,9 +28,6 @@ export interface UserMemory {
 const MAX_CONTEXT_ENTRIES = 50;
 const MAX_PREFERENCE_ENTRIES = 20;
 
-/**
- * Store a memory entry for a user.
- */
 export async function storeMemory(
   userId: string,
   type: MemoryEntry["type"],
@@ -43,20 +38,21 @@ export async function storeMemory(
   ttlDays?: number
 ): Promise<MemoryEntry | null> {
   const supabase = await createClient();
-  const entry: Omit<MemoryEntry, "id"> = {
-    userId,
+  const entry = {
+    id: `${userId}:${type}:${key}`,
+    user_id: userId,
     type,
     key,
     value,
     importance: Math.min(10, Math.max(1, importance)),
-    metadata,
-    createdAt: new Date().toISOString(),
-    expiresAt: ttlDays ? new Date(Date.now() + ttlDays * 86400000).toISOString() : undefined,
+    metadata: metadata || {},
+    created_at: new Date().toISOString(),
+    expires_at: ttlDays ? new Date(Date.now() + ttlDays * 86400000).toISOString() : null,
   };
 
   const { data, error } = await supabase
     .from("user_memory")
-    .upsert({ ...entry, id: `${userId}:${type}:${key}` }, { onConflict: "id" })
+    .upsert(entry, { onConflict: "id" })
     .select()
     .single();
 
@@ -64,13 +60,9 @@ export async function storeMemory(
     console.error("Memory store error:", error.message);
     return null;
   }
-
   return data;
 }
 
-/**
- * Retrieve all relevant memories for a user, organized by type.
- */
 export async function getUserMemory(userId: string): Promise<UserMemory> {
   const supabase = await createClient();
   const now = new Date().toISOString();
@@ -78,8 +70,8 @@ export async function getUserMemory(userId: string): Promise<UserMemory> {
   const { data: entries } = await supabase
     .from("user_memory")
     .select("*")
-    .eq("userId", userId)
-    .or(`expiresAt.is.null,expiresAt.gt.${now}`)
+    .eq("user_id", userId)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .order("importance", { ascending: false })
     .limit(100);
 
@@ -94,9 +86,6 @@ export async function getUserMemory(userId: string): Promise<UserMemory> {
   };
 }
 
-/**
- * Build a context string from user memory for injection into AI prompts.
- */
 export function buildMemoryContext(memory: UserMemory): string {
   const sections: string[] = [];
 
@@ -131,30 +120,23 @@ export function buildMemoryContext(memory: UserMemory): string {
   return sections.join("\n\n");
 }
 
-/**
- * Extract and store memories from a conversation exchange.
- * Auto-detects preferences, symbols mentioned, and insights.
- */
 export async function extractAndStoreMemories(
   userId: string,
   userMessage: string,
   aiResponse: string
 ): Promise<void> {
-  // Extract mentioned symbols
-  const symbolPattern = /\b([A-Z]{1,5})\b/g;
-  const symbols = [...new Set(userMessage.match(symbolPattern) || [])].filter(
-    (s) => s.length >= 2 && !["AI", "SA", "OR", "AN", "IF", "IT", "IS", "IN", "ON", "TO", "OF", "AT", "BY", "DO", "NO", "SO", "UP", "WE", "AM", "AS", "BE", "HE", "ME"].includes(s)
-  );
+  const symbolPattern = /\b([A-Z]{2,5})\b/g;
+  const excluded = new Set(["AI", "SA", "OR", "AN", "IF", "IT", "IS", "IN", "ON", "TO", "OF", "AT", "BY", "DO", "NO", "SO", "UP", "WE", "AM", "AS", "BE", "HE", "ME", "US", "THE", "AND", "FOR", "NOT", "BUT", "ALL", "CAN", "HER", "WAS", "ONE", "OUR"]);
+  const symbols = [...new Set(userMessage.match(symbolPattern) || [])].filter((s) => !excluded.has(s));
 
   for (const symbol of symbols.slice(0, 3)) {
     await storeMemory(userId, "context", `mentioned:${symbol}`, `User asked about ${symbol}`, 3, undefined, 30);
   }
 
-  // Detect risk preferences
-  const riskKeywords = {
+  const riskKeywords: Record<string, string[]> = {
     conservative: ["safe", "conservative", "low risk", "capital preservation"],
     moderate: ["balanced", "moderate", "steady growth"],
-    aggressive: ["aggressive", "high risk", "maximum growth", "yolo"],
+    aggressive: ["aggressive", "high risk", "maximum growth"],
   };
 
   const lowerMessage = userMessage.toLowerCase();
@@ -165,16 +147,12 @@ export async function extractAndStoreMemories(
     }
   }
 
-  // Store analysis summaries
   if (aiResponse.length > 200) {
     const summary = aiResponse.slice(0, 200).replace(/\n/g, " ");
     await storeMemory(userId, "analysis", `analysis:${Date.now()}`, summary, 4, undefined, 14);
   }
 }
 
-/**
- * Clear expired memories for a user.
- */
 export async function pruneExpiredMemories(userId: string): Promise<number> {
   const supabase = await createClient();
   const now = new Date().toISOString();
@@ -182,8 +160,8 @@ export async function pruneExpiredMemories(userId: string): Promise<number> {
   const { data } = await supabase
     .from("user_memory")
     .delete()
-    .eq("userId", userId)
-    .lt("expiresAt", now)
+    .eq("user_id", userId)
+    .lt("expires_at", now)
     .select("id");
 
   return data?.length || 0;
