@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyStitchWebhook } from "@/lib/payments/stitch";
+import { verifyStitchWebhook, parseStitchEvent, getTierFromAmount } from "@/lib/payments/stitch";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
@@ -11,32 +11,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
     }
 
-    const event = JSON.parse(body);
+    const event = parseStitchEvent(body);
     const supabase = createAdminClient();
 
     if (event.type === "payment.completed") {
-      const userId = event.data?.externalReference;
+      const userId = event.data.externalReference;
+      const amountZAR = parseFloat(event.data.amount.quantity);
+      const tier = getTierFromAmount(amountZAR);
+
       if (userId) {
         await supabase
           .from("payments")
           .insert({
             user_id: userId,
-            amount: event.data.amount?.quantity || 0,
+            amount: amountZAR,
             currency: "ZAR",
             provider: "stitch",
-            provider_payment_id: event.data.id,
+            provider_payment_id: event.data.paymentRequestId,
             status: "completed",
           });
 
-        // Update subscription
+        // Update subscription with resolved tier
         await supabase
           .from("subscriptions")
           .update({
-            stitch_payment_id: event.data.id,
+            tier: tier || undefined,
+            stitch_payment_id: event.data.paymentRequestId,
             status: "active",
             updated_at: new Date().toISOString(),
           })
           .eq("user_id", userId);
+      }
+    } else if (event.type === "payment.failed") {
+      const userId = event.data.externalReference;
+      if (userId) {
+        await supabase.from("payments").insert({
+          user_id: userId,
+          amount: parseFloat(event.data.amount.quantity),
+          currency: "ZAR",
+          provider: "stitch",
+          provider_payment_id: event.data.paymentRequestId,
+          status: "failed",
+        });
       }
     }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/market/data-layer";
+import { triggerMarketAlertScan, isN8nConfigured } from "@/lib/n8n/webhooks";
 
 export async function GET() {
   const symbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "NVDA", "META", "BTC/USDT", "ETH/USDT"];
@@ -14,6 +15,11 @@ export async function GET() {
         changePct: q.changePct,
         type: q.changePct > 0 ? "gainer" : "loser",
       }));
+
+    // Trigger n8n workflow for additional alert processing
+    if (isN8nConfigured() && movers.length > 0) {
+      triggerMarketAlertScan(movers.map((m) => m.symbol)).catch(() => {});
+    }
 
     return NextResponse.json({ movers, scannedAt: new Date().toISOString() });
   } catch (error) {

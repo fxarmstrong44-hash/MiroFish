@@ -78,6 +78,19 @@ export async function createStitchPayment(params: StitchPaymentRequest): Promise
   };
 }
 
+export interface StitchWebhookEvent {
+  id: string;
+  type: "payment.completed" | "payment.failed" | "payment.pending" | "refund.completed";
+  data: {
+    paymentRequestId: string;
+    amount: { quantity: string; currency: string };
+    status: string;
+    externalReference?: string;
+    payer?: { bankId: string; accountNumber: string; name: string };
+  };
+  createdAt: string;
+}
+
 export function verifyStitchWebhook(body: string, signature: string): boolean {
   const crypto = require("crypto");
   const expected = crypto
@@ -85,4 +98,22 @@ export function verifyStitchWebhook(body: string, signature: string): boolean {
     .update(body)
     .digest("hex");
   return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
+export function parseStitchEvent(payload: string): StitchWebhookEvent {
+  return JSON.parse(payload) as StitchWebhookEvent;
+}
+
+export function getTierFromAmount(amountZAR: number): string | null {
+  const tiers: Record<string, number> = {
+    starter: 493,
+    pro: 1683,
+    elite: 5084,
+    secret: 169884,
+  };
+
+  for (const [tier, price] of Object.entries(tiers)) {
+    if (Math.abs(amountZAR - price) < 1) return tier;
+  }
+  return null;
 }
